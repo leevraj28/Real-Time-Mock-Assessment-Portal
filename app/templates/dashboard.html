@@ -113,15 +113,15 @@
                 <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-500 to-purple-600 flex items-center justify-center shadow-inner">
                   <i class="bi bi-journal-code text-slate-900 text-xl"></i>
                 </div>
-                <span class="px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wider"
-                      :class="{'bg-emerald-100 text-emerald-700': ass.difficulty==='easy', 'bg-amber-100 text-amber-700': ass.difficulty==='medium', 'bg-red-100 text-red-700': ass.difficulty==='hard'}"
-                      x-text="ass.difficulty"></span>
+                <div class="flex items-center gap-2">
+                  <span x-show="ass.is_premium" class="px-2.5 py-1 rounded-md text-xs font-bold bg-amber-100 text-amber-700 border border-amber-300">₹<span x-text="formatInr(ass.price)"></span></span>
+                  <span class="px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wider"
+                        :class="{'bg-emerald-100 text-emerald-700': ass.difficulty==='easy', 'bg-amber-100 text-amber-700': ass.difficulty==='medium', 'bg-red-100 text-red-700': ass.difficulty==='hard'}"
+                        x-text="ass.difficulty"></span>
+                </div>
               </div>
-              <h3 class="text-lg font-bold text-slate-900 mb-2 flex items-center">
+              <h3 class="text-lg font-bold text-slate-900 mb-2">
                 <span x-text="ass.title"></span>
-                <span x-show="ass.is_premium" class="ml-2 bg-amber-100 text-amber-600 text-xs px-2 py-0.5 rounded border border-amber-300 font-bold flex items-center">
-                  <i class="bi bi-currency-dollar mr-0.5"></i>PREMIUM
-                </span>
               </h3>
               <p class="text-sm text-slate-600 mb-6 flex-1 line-clamp-2" x-text="ass.description || 'No description available.'"></p>
               
@@ -133,7 +133,7 @@
               
               <button @click="startExam(ass)" class="w-full bg-brand-600 hover:bg-brand-500 text-white font-medium py-2.5 rounded-lg transition-colors text-center shadow-md shadow-brand-500/20">
                 <span x-show="!ass.is_premium">Start Assessment <i class="bi bi-arrow-right ml-1"></i></span>
-                <span x-show="ass.is_premium">Unlock Premium Exam ($<span x-text="(ass.price / 100).toFixed(2)"></span>) <i class="bi bi-lock-fill ml-1"></i></span>
+                <span x-show="ass.is_premium">Unlock Premium · ₹<span x-text="formatInr(ass.price)"></span> <i class="bi bi-lock-fill ml-1"></i></span>
               </button>
             </div>
           </template>
@@ -153,26 +153,27 @@
           <div class="p-6">
             <div class="flex justify-between items-center mb-6 py-3 border-y border-slate-100">
               <span class="text-slate-600 font-medium">Total Amount</span>
-              <span class="text-2xl font-bold text-slate-900">$<span x-text="selectedPremiumExam ? (selectedPremiumExam.price / 100).toFixed(2) : '0.00'"></span></span>
+              <span class="text-2xl font-bold text-slate-900">₹<span x-text="selectedPremiumExam ? formatInr(selectedPremiumExam.price) : '0'"></span></span>
             </div>
             <div class="space-y-3 mb-6">
               <div>
-                <label class="block text-xs font-bold text-slate-600 mb-1 uppercase tracking-wider">Card Number</label>
-                <div class="flex items-center border border-slate-300 rounded-lg bg-slate-50 px-3 py-2 text-slate-500">
-                  <i class="bi bi-credit-card mr-2 text-brand-500"></i>
-                  <span>•••• •••• •••• 4242</span>
+                <label for="card-number" class="block text-xs font-bold text-slate-600 mb-1 uppercase tracking-wider">Card Number</label>
+                <div class="flex items-center border border-slate-300 rounded-lg bg-white px-3 focus-within:border-brand-500 focus-within:ring-1 focus-within:ring-brand-500">
+                  <i class="bi bi-credit-card text-brand-500"></i>
+                  <input id="card-number" x-model="cardNumber" type="text" inputmode="numeric" autocomplete="cc-number" maxlength="19" placeholder="1234 5678 9012 3456" class="w-full bg-transparent text-slate-900 placeholder:text-slate-400 px-2 py-2.5 focus:outline-none">
                 </div>
               </div>
               <div class="grid grid-cols-2 gap-3">
                 <div>
-                  <label class="block text-xs font-bold text-slate-600 mb-1 uppercase tracking-wider">Expiry</label>
-                  <div class="border border-slate-300 rounded-lg bg-slate-50 px-3 py-2 text-slate-500">12/26</div>
+                  <label for="card-expiry" class="block text-xs font-bold text-slate-600 mb-1 uppercase tracking-wider">Expiry</label>
+                  <input id="card-expiry" x-model="cardExpiry" type="text" inputmode="numeric" autocomplete="cc-exp" maxlength="5" placeholder="MM/YY" class="w-full bg-white border border-slate-300 text-slate-900 placeholder:text-slate-400 px-3 py-2.5 rounded-lg focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500">
                 </div>
                 <div>
-                  <label class="block text-xs font-bold text-slate-600 mb-1 uppercase tracking-wider">CVC</label>
-                  <div class="border border-slate-300 rounded-lg bg-slate-50 px-3 py-2 text-slate-500">•••</div>
+                  <label for="card-cvc" class="block text-xs font-bold text-slate-600 mb-1 uppercase tracking-wider">CVC</label>
+                  <input id="card-cvc" x-model="cardCvc" type="text" inputmode="numeric" autocomplete="cc-csc" maxlength="4" placeholder="123" class="w-full bg-white border border-slate-300 text-slate-900 placeholder:text-slate-400 px-3 py-2.5 rounded-lg focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500">
                 </div>
               </div>
+              <p x-show="paymentError" x-text="paymentError" class="text-sm text-red-600"></p>
             </div>
             
             <p class="text-xs text-center text-slate-500 mb-4"><i class="bi bi-lock-fill mr-1"></i>This is a mock Stripe sandbox environment.</p>
@@ -258,6 +259,15 @@ function dashboardApp() {
     showPaymentModal: false,
     selectedPremiumExam: null,
     isProcessingPayment: false,
+    cardNumber: '',
+    cardExpiry: '',
+    cardCvc: '',
+    paymentError: '',
+
+    formatInr(paisa) {
+      const rupees = (paisa || 0) / 100;
+      return Number.isInteger(rupees) ? String(rupees) : rupees.toFixed(2);
+    },
     
     // Navigation config
     navItems: [
@@ -280,6 +290,10 @@ function dashboardApp() {
     startExam(ass) {
       if(ass.is_premium) {
         this.selectedPremiumExam = ass;
+        this.cardNumber = '';
+        this.cardExpiry = '';
+        this.cardCvc = '';
+        this.paymentError = '';
         this.showPaymentModal = true;
       } else {
         window.location = '/exam/' + ass.id;
@@ -287,12 +301,27 @@ function dashboardApp() {
     },
 
     async processPayment() {
+      const digits = (this.cardNumber || '').replace(/\D/g, '');
+      const expiry = (this.cardExpiry || '').trim();
+      const cvc = (this.cardCvc || '').replace(/\D/g, '');
+      if (digits.length < 13 || digits.length > 19) {
+        this.paymentError = 'Enter a valid card number.';
+        return;
+      }
+      if (!/^(0[1-9]|1[0-2])\/\d{2}$/.test(expiry)) {
+        this.paymentError = 'Enter expiry as MM/YY.';
+        return;
+      }
+      if (cvc.length < 3 || cvc.length > 4) {
+        this.paymentError = 'Enter a valid CVC.';
+        return;
+      }
+      this.paymentError = '';
       this.isProcessingPayment = true;
-      // Simulate network call to payment gateway (Stripe)
       await new Promise(r => setTimeout(r, 1500));
       this.isProcessingPayment = false;
       this.showPaymentModal = false;
-      alert(`Payment of $${(this.selectedPremiumExam.price/100).toFixed(2)} successful! Unlocking exam...`);
+      alert(`Payment of ₹${this.formatInr(this.selectedPremiumExam.price)} successful! Unlocking exam...`);
       window.location = '/exam/' + this.selectedPremiumExam.id;
     },
 

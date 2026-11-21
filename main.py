@@ -1,4 +1,5 @@
 import asyncio
+import inspect
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect, Depends
 from fastapi.staticfiles import StaticFiles
@@ -41,6 +42,12 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True,
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 
+def render_template(request: Request, name: str, context: dict | None = None) -> HTMLResponse:
+    template_context = {"request": request, **(context or {})}
+    if "request" in inspect.signature(templates.TemplateResponse).parameters:
+        return templates.TemplateResponse(request=request, name=name, context=template_context)
+    return templates.TemplateResponse(name, template_context)
+
 # Register API routers
 for router in [auth.router, assessments.router, questions.router,
                results.router, violations.router, dashboard.router, admin.router, analytics.router]:
@@ -49,35 +56,35 @@ for router in [auth.router, assessments.router, questions.router,
 # ── Page Routes ──────────────────────────────────────────────────────────────
 @app.get("/", response_class=HTMLResponse)
 async def landing(request: Request):
-    return templates.TemplateResponse("landing.html", {"request": request})
+    return render_template(request, "landing.html")
 
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request})
+    return render_template(request, "login.html")
 
 @app.get("/register", response_class=HTMLResponse)
 async def register_page(request: Request):
-    return templates.TemplateResponse("register.html", {"request": request})
+    return render_template(request, "register.html")
 
 @app.get("/dashboard", response_class=HTMLResponse)
 async def dashboard_page(request: Request):
-    return templates.TemplateResponse("dashboard.html", {"request": request})
+    return render_template(request, "dashboard.html")
 
 @app.get("/admin-panel", response_class=HTMLResponse)
 async def admin_panel_page(request: Request):
-    return templates.TemplateResponse("admin.html", {"request": request})
+    return render_template(request, "admin.html")
 
 @app.get("/exam/{assessment_id}", response_class=HTMLResponse)
 async def exam_page(request: Request, assessment_id: int):
-    return templates.TemplateResponse("exam.html", {"request": request, "assessment_id": assessment_id})
+    return render_template(request, "exam.html", {"assessment_id": assessment_id})
 
 @app.get("/result/{result_id}", response_class=HTMLResponse)
 async def result_page(request: Request, result_id: int):
-    return templates.TemplateResponse("result.html", {"request": request, "result_id": result_id})
+    return render_template(request, "result.html", {"result_id": result_id})
 
 @app.get("/report/{result_id}", response_class=HTMLResponse)
 async def report_page(request: Request, result_id: int):
-    return templates.TemplateResponse("report.html", {"request": request, "result_id": result_id})
+    return render_template(request, "report.html", {"result_id": result_id})
 
 # ── WebSocket ─────────────────────────────────────────────────────────────────
 @app.websocket("/ws/exam/{assessment_id}")

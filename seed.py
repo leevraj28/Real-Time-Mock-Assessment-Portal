@@ -2,7 +2,7 @@ import asyncio
 from sqlalchemy import select
 from app.database.db import AsyncSessionLocal, init_db
 from app.models.user import User, UserRole
-from app.models.assessment import Assessment
+from app.models.assessment import HARD_PREMIUM_PRICE, Assessment
 from app.models.question import Question, QuestionType
 from app.services.auth import hash_password
 
@@ -26,9 +26,9 @@ async def seed():
         # Assessments
         a1 = Assessment(title="Python Fundamentals", description="Test your Python basics",
                         duration=30, total_marks=10, passing_marks=6, difficulty="easy", category="Programming")
-        a2 = Assessment(title="Data Structures & Algorithms (Premium)", description="DSA concepts assessment (Requires payment)",
+        a2 = Assessment(title="Data Structures & Algorithms (Premium)", description="DSA concepts assessment (Premium ₹99)",
                         duration=60, total_marks=20, passing_marks=12, difficulty="hard", category="Computer Science",
-                        is_premium=True, price=999) # 999 = $9.99
+                        is_premium=True, price=HARD_PREMIUM_PRICE)
         a3 = Assessment(title="Web Development Basics", description="HTML, CSS, JS fundamentals",
                         duration=45, total_marks=15, passing_marks=9, difficulty="medium", category="Web")
         db.add_all([a1, a2, a3])

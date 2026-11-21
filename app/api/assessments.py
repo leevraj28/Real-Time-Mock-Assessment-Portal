@@ -4,7 +4,7 @@ from sqlalchemy import select, func
 from typing import Optional
 from pydantic import BaseModel
 from app.database.db import get_db
-from app.models.assessment import Assessment
+from app.models.assessment import HARD_PREMIUM_PRICE, Assessment
 from app.models.question import Question
 from app.models.result import Result
 from app.models.user import User
@@ -31,7 +31,14 @@ class AssessmentOut(BaseModel):
     difficulty: str
     category: Optional[str]
     is_active: bool
+    is_premium: bool = False
+    price: int = 0
     model_config = {"from_attributes": True}
+
+def apply_hard_premium(assessment: Assessment) -> None:
+    if (assessment.difficulty or "").lower() == "hard":
+        assessment.is_premium = True
+        assessment.price = HARD_PREMIUM_PRICE
 
 @router.get("/", response_model=list[AssessmentOut])
 async def list_assessments(db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)):
@@ -49,6 +56,7 @@ async def get_assessment(assessment_id: int, db: AsyncSession = Depends(get_db),
 @router.post("/", response_model=AssessmentOut, status_code=201)
 async def create_assessment(data: AssessmentCreate, db: AsyncSession = Depends(get_db), admin: User = Depends(require_admin)):
     assessment = Assessment(**data.model_dump())
+    apply_hard_premium(assessment)
     db.add(assessment)
     await db.commit()
     await db.refresh(assessment)
@@ -62,6 +70,7 @@ async def update_assessment(assessment_id: int, data: AssessmentCreate, db: Asyn
         raise HTTPException(status_code=404, detail="Assessment not found")
     for k, v in data.model_dump().items():
         setattr(assessment, k, v)
+    apply_hard_premium(assessment)
     await db.commit()
     await db.refresh(assessment)
     return assessment

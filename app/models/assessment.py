@@ -3,6 +3,9 @@ from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.database.db import Base
 
+# Hard assessments stay premium. Price is stored in paisa (₹99 = 9900).
+HARD_PREMIUM_PRICE = 9900
+
 class Assessment(Base):
     __tablename__ = "assessments"
     id = Column(Integer, primary_key=True, index=True)

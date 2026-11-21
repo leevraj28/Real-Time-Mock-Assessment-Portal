@@ -61,16 +61,16 @@ body { @apply bg-white overflow-hidden; }
           <div class="bg-red-100 border border-red-500/20 p-5 rounded-xl">
             <div class="flex items-center text-red-600 font-bold mb-3"><i class="bi bi-x-circle-fill mr-2"></i>Don'ts</div>
             <ul class="space-y-2 text-sm text-slate-800">
-              <li>• Don't switch tabs or windows</li>
-              <li>• Don't look away from the screen</li>
-              <li>• Don't let others enter the camera view</li>
+              <li>• Don't switch tabs, windows, or leave fullscreen</li>
+              <li>• Don't copy, paste, or look away from the screen</li>
+              <li>• Don't talk to anyone, or show a phone or another person on camera</li>
             </ul>
           </div>
         </div>
         
         <div class="bg-amber-100 border border-amber-500/20 p-4 rounded-xl flex items-start">
           <i class="bi bi-exclamation-triangle-fill text-amber-500 text-lg mr-3 mt-0.5"></i>
-          <p class="text-sm text-slate-800"><strong class="text-amber-500">Warning:</strong> AI Proctoring is active. Malicious activities like tab switching or face obstruction will be recorded and may terminate your exam.</p>
+          <p class="text-sm text-slate-800"><strong class="text-amber-500">Warning:</strong> The exam starts only when your face is clearly visible and no phone is in view. Talking is a violation. You can have 5 violations. The 5th one submits the exam.</p>
         </div>
       </div>
       
@@ -82,22 +82,51 @@ body { @apply bg-white overflow-hidden; }
     </div>
   </div>
 
+  <!-- Camera gate: exam does not start until the face check passes -->
+  <div x-show="showCameraCheck" class="fixed inset-0 z-[150] flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-4" style="display: none;">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden">
+      <div class="p-6 border-b border-slate-200">
+        <h2 class="text-xl font-bold text-slate-900">Camera check</h2>
+        <p class="text-sm text-slate-600 mt-1">Show only your face, keep a phone out of view, and stay quiet once the exam begins.</p>
+      </div>
+      <div class="p-6">
+        <div class="bg-black rounded-xl overflow-hidden relative mb-4" style="height: 220px;">
+          <video id="checkCam" autoplay playsinline muted class="w-full h-full object-cover transform scale-x-[-1]"></video>
+        </div>
+        <p class="text-sm font-medium mb-4" :class="cameraReady ? 'text-emerald-600' : 'text-amber-600'" x-text="cameraStatus"></p>
+        <div class="flex gap-3">
+          <button @click="cancelCameraCheck()" class="flex-1 border border-slate-300 text-slate-700 font-medium py-2.5 rounded-lg">Back</button>
+          <button @click="beginExam()" :disabled="!cameraReady" class="flex-1 bg-brand-600 hover:bg-brand-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold py-2.5 rounded-lg">Begin exam</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Strict Invigilator Warning Modal -->
   <div x-show="showViolationModal" class="fixed inset-0 z-[200] flex items-center justify-center bg-red-900/90 backdrop-blur-md p-4" style="display: none;">
-    <div class="bg-white border-4 border-red-500 rounded-2xl shadow-2xl max-w-lg w-full flex flex-col overflow-hidden transform transition-all animate-pulse">
+    <div class="bg-white border-4 border-red-500 rounded-2xl shadow-2xl max-w-lg w-full flex flex-col overflow-hidden">
       <div class="p-6 bg-red-500 flex items-center justify-center flex-col text-center">
         <i class="bi bi-exclamation-octagon-fill text-white text-5xl mb-2"></i>
         <h2 class="text-2xl font-bold text-white uppercase tracking-wider">Invigilator Alert</h2>
       </div>
       <div class="p-8 text-center">
         <p class="text-xl text-slate-800 font-bold mb-4" x-text="violationMsg"></p>
-        <p class="text-slate-600 mb-6">Please stop any malicious activities. Your camera must clearly show only your face at all times. Repeated violations will result in auto-submission and failure of the exam.</p>
-        <div class="bg-red-50 text-red-600 font-bold p-3 rounded-lg mb-6 text-sm">
-          Total Violations Recorded: <span x-text="violations" class="text-xl ml-1"></span>
+        <p class="text-slate-600 mb-4">Keep only your face in view. Do not talk, switch tabs, leave the window, or show a phone.</p>
+        <div class="bg-red-50 text-red-700 rounded-lg p-4 mb-4 text-left">
+          <div class="flex justify-between text-sm font-bold mb-2">
+            <span>Used <span x-text="violations"></span> of <span x-text="maxViolations"></span></span>
+            <span x-text="violationsLeft + ' left'"></span>
+          </div>
+          <ul class="text-sm space-y-1 max-h-28 overflow-y-auto">
+            <template x-for="(item, idx) in violationLog" :key="idx">
+              <li x-text="(idx + 1) + '. ' + item"></li>
+            </template>
+          </ul>
         </div>
-        <button x-show="violations < 3" @click="showViolationModal = false" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition-colors text-lg">
+        <button x-show="violations < maxViolations" @click="showViolationModal = false" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition-colors text-lg">
           I Understand & Will Comply
         </button>
+        <p x-show="violations >= maxViolations" class="text-red-600 font-bold">All 5 violations are used. This exam is being submitted.</p>
       </div>
     </div>
   </div>
@@ -234,7 +263,7 @@ body { @apply bg-white overflow-hidden; }
           <i class="bi bi-camera-video-fill text-brand-500 mr-2"></i>Live Proctoring
         </h3>
         <div class="bg-black rounded-xl overflow-hidden relative border border-slate-300 shadow-inner" style="height: 140px;">
-          <video id="webcam" autoplay playsinline class="w-full h-full object-cover transform scale-x-[-1]"></video>
+          <video id="webcam" autoplay playsinline muted class="w-full h-full object-cover transform scale-x-[-1]"></video>
           <canvas id="snapshotCanvas" class="hidden"></canvas>
           <div class="absolute bottom-2 left-2 flex items-center space-x-1">
             <span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
@@ -279,9 +308,18 @@ body { @apply bg-white overflow-hidden; }
           </div>
         </div>
         
-        <div class="bg-red-100 rounded-xl p-4 border border-red-500/20 flex justify-between items-center">
-          <span class="text-sm text-slate-600">Violations</span>
-          <span class="font-bold text-xl text-red-500" x-text="violations"></span>
+        <div class="bg-red-100 rounded-xl p-4 border border-red-500/20">
+          <div class="flex justify-between items-center">
+            <span class="text-sm text-slate-600">Violations</span>
+            <span class="font-bold text-xl text-red-500" x-text="violations + ' / ' + maxViolations"></span>
+          </div>
+          <p class="text-xs text-red-600 mt-1" x-text="violationsLeft + ' left before the exam is submitted'"></p>
+          <ul class="mt-3 space-y-1 text-xs text-slate-700 max-h-24 overflow-y-auto">
+            <template x-for="(item, idx) in violationLog" :key="idx">
+              <li x-text="(idx + 1) + '. ' + item"></li>
+            </template>
+            <li x-show="violationLog.length === 0" class="text-slate-500">No violations yet.</li>
+          </ul>
         </div>
       </div>
     </aside>
@@ -296,8 +334,13 @@ function examApp() {
   const assessmentId = {{ assessment_id }};
   return {
     showModal: true,
+    showCameraCheck: false,
     showViolationModal: false,
     examStarted: false,
+    cameraReady: false,
+    cameraStatus: 'Starting the camera...',
+    cameraStream: null,
+    checkInterval: null,
     assessment: null,
     questions: [],
     currentIdx: 0,
@@ -307,7 +350,11 @@ function examApp() {
     timerInterval: null,
     cameraInterval: null,
     violations: 0,
+    maxViolations: 5,
+    violationLog: [],
     violationMsg: '',
+    lastViolationAt: {},
+    autoSubmitting: false,
     startTime: 0,
     ws: null,
     
@@ -318,6 +365,28 @@ function examApp() {
 
     get currentQ() {
       return this.questions[this.currentIdx] || null;
+    },
+
+    get violationsLeft() {
+      return Math.max(0, this.maxViolations - this.violations);
+    },
+
+    violationLabel(type) {
+      const labels = {
+        tab_switch: 'Switched to another tab',
+        window_blur: 'Left the exam window',
+        copy: 'Tried to copy exam content',
+        paste: 'Tried to paste into the exam',
+        cut: 'Tried to cut exam content',
+        fullscreen_exit: 'Left fullscreen',
+        NO_FACE_DETECTED: 'Face was not visible',
+        MULTIPLE_FACES_DETECTED: 'More than one face was in view',
+        FACE_NOT_CLEAR: 'Face was not clearly visible',
+        FACE_TOO_SMALL: 'Face was too far from the camera',
+        PHONE_DETECTED: 'A mobile phone was visible on camera',
+        talking: 'Talking was detected'
+      };
+      return labels[type] || type.replaceAll('_', ' ');
     },
 
     async initApp() {
@@ -367,72 +436,178 @@ function examApp() {
       ].filter(o => o.val);
     },
 
-    startExam() {
+    async startExam() {
       this.showModal = false;
+      this.showCameraCheck = true;
+      this.cameraReady = false;
+      this.cameraStatus = 'Starting the camera...';
+      try {
+        this.cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: true });
+        const preview = document.getElementById('checkCam');
+        preview.muted = true;
+        preview.srcObject = this.cameraStream;
+        this.cameraStatus = 'Checking that your face is clearly visible...';
+        this.checkInterval = setInterval(() => this.runCameraGate(preview), 1500);
+      } catch (err) {
+        this.cameraStatus = 'Camera and microphone access are required. Allow both, then try again.';
+      }
+    },
+
+    cancelCameraCheck() {
+      if (this.checkInterval) clearInterval(this.checkInterval);
+      this.checkInterval = null;
+      this.stopVoiceMonitor();
+      if (this.cameraStream) {
+        this.cameraStream.getTracks().forEach(track => track.stop());
+        this.cameraStream = null;
+      }
+      this.showCameraCheck = false;
+      this.cameraReady = false;
+      this.showModal = true;
+    },
+
+    async runCameraGate(video) {
+      if (!video || video.videoWidth === 0) return;
+      const image = this.snapshot(video);
+      try {
+        const res = await apiFetch('/api/violations/verify-face', {
+          method: 'POST',
+          body: JSON.stringify({ assessment_id: assessmentId, image_base64: image, strict: true })
+        });
+        if (!res || !res.ok) return;
+        const data = await res.json();
+        this.cameraReady = !data.is_violation;
+        this.cameraStatus = data.is_violation ? data.message : 'Face is clear and no phone is visible. Stay quiet after you begin.';
+      } catch (e) {}
+    },
+
+    beginExam() {
+      if (!this.cameraReady || !this.cameraStream) return;
+      if (this.checkInterval) clearInterval(this.checkInterval);
+      this.checkInterval = null;
+      this.showCameraCheck = false;
       this.examStarted = true;
       this.startTime = Date.now();
-      
+
+      this.$nextTick(() => {
+        const video = document.getElementById('webcam');
+        if (video) {
+          video.muted = true;
+          video.srcObject = this.cameraStream;
+        }
+        this.cameraInterval = setInterval(() => this.captureAndVerify(video), 5000);
+        this.startVoiceMonitor(this.cameraStream);
+      });
+
       this.timerInterval = setInterval(() => {
-        // Pause timer if violation modal is NOT showing, otherwise timer continues (punishment)
         this.timeLeft--;
-        if(this.timeLeft <= 0) {
+        if (this.timeLeft <= 0) {
           clearInterval(this.timerInterval);
           this.submitExam();
         }
       }, 1000);
 
-      // Anti-cheat setup
       document.addEventListener('visibilitychange', () => {
-        if(document.hidden) this.logViolation('tab_switch');
+        if (document.hidden) this.logViolation('tab_switch');
       });
       window.addEventListener('blur', () => this.logViolation('window_blur'));
+      document.addEventListener('copy', (event) => { event.preventDefault(); this.logViolation('copy'); });
+      document.addEventListener('paste', (event) => { event.preventDefault(); this.logViolation('paste'); });
+      document.addEventListener('cut', (event) => { event.preventDefault(); this.logViolation('cut'); });
+      document.addEventListener('fullscreenchange', () => {
+        if (this.examStarted && !document.fullscreenElement) this.logViolation('fullscreen_exit');
+      });
+      document.documentElement.requestFullscreen?.().catch(() => {});
 
-      // WebSockets for live monitoring
       try {
         this.ws = new WebSocket(`ws://${location.host}/ws/exam/${assessmentId}`);
         setInterval(() => {
-          if(this.ws && this.ws.readyState === 1) {
+          if (this.ws && this.ws.readyState === 1) {
             this.ws.send(JSON.stringify({type: 'autosave', answers: Object.keys(this.answers).length}));
           }
         }, 10000);
-      } catch(e){}
-
-      // Start Webcam for Face Verification
-      navigator.mediaDevices.getUserMedia({ video: true })
-        .then(stream => {
-          const video = document.getElementById('webcam');
-          video.srcObject = stream;
-          this.cameraInterval = setInterval(() => this.captureAndVerify(video), 5000);
-        })
-        .catch(err => {
-          alert("Webcam access is required for proctoring.");
-          this.logViolation('camera_access_denied');
-        });
+      } catch (e) {}
     },
 
-    async captureAndVerify(video) {
-      // Don't verify if modal is already open
-      if(video.videoWidth === 0 || this.showViolationModal) return;
-      
+    startVoiceMonitor(stream) {
+      const audioTracks = stream ? stream.getAudioTracks() : [];
+      if (!audioTracks.length) return;
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      this.audioContext = new AudioCtx();
+      this.audioContext.resume?.();
+      const source = this.audioContext.createMediaStreamSource(new MediaStream(audioTracks));
+      const analyser = this.audioContext.createAnalyser();
+      analyser.fftSize = 2048;
+      source.connect(analyser);
+      const time = new Uint8Array(analyser.fftSize);
+      const freq = new Uint8Array(analyser.frequencyBinCount);
+      let voicedMs = 0;
+      let last = performance.now();
+      const tick = () => {
+        if (!this.examStarted || this.autoSubmitting) return;
+        const now = performance.now();
+        const elapsed = now - last;
+        last = now;
+        if (this.showViolationModal) {
+          voicedMs = 0;
+        } else {
+          analyser.getByteTimeDomainData(time);
+          let energy = 0;
+          for (let i = 0; i < time.length; i++) {
+            const sample = (time[i] - 128) / 128;
+            energy += sample * sample;
+          }
+          const rms = Math.sqrt(energy / time.length);
+          analyser.getByteFrequencyData(freq);
+          const binHz = (this.audioContext.sampleRate / 2) / freq.length;
+          let speech = 0;
+          let total = 0;
+          for (let i = 0; i < freq.length; i++) {
+            const hz = i * binHz;
+            total += freq[i];
+            if (hz >= 300 && hz <= 3400) speech += freq[i];
+          }
+          const speechLike = rms > 0.06 && total > 0 && (speech / total) > 0.4;
+          voicedMs = speechLike ? voicedMs + elapsed : Math.max(0, voicedMs - elapsed);
+          if (voicedMs >= 1200) {
+            voicedMs = 0;
+            this.logViolation('talking', 'Talking was detected. Do not speak to anyone during the exam.');
+          }
+        }
+        this.voiceFrame = requestAnimationFrame(tick);
+      };
+      this.voiceFrame = requestAnimationFrame(tick);
+    },
+
+    stopVoiceMonitor() {
+      if (this.voiceFrame) cancelAnimationFrame(this.voiceFrame);
+      this.voiceFrame = null;
+      if (this.audioContext) {
+        this.audioContext.close().catch(() => {});
+        this.audioContext = null;
+      }
+    },
+
+    snapshot(video) {
       const canvas = document.getElementById('snapshotCanvas');
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const base64Image = canvas.toDataURL('image/jpeg', 0.5);
-      
+      canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+      return canvas.toDataURL('image/jpeg', 0.5);
+    },
+
+    async captureAndVerify(video) {
+      if (!video || video.videoWidth === 0 || this.showViolationModal || !this.examStarted) return;
       try {
         const res = await apiFetch('/api/violations/verify-face', {
           method: 'POST',
-          body: JSON.stringify({ assessment_id: assessmentId, image_base64: base64Image })
+          body: JSON.stringify({ assessment_id: assessmentId, image_base64: this.snapshot(video), strict: false })
         });
-        if(res && res.ok) {
+        if (res && res.ok) {
           const data = await res.json();
-          if(data.is_violation) {
-            this.handleViolationWarning(data.message, data.violation_type);
-          }
+          if (data.is_violation) this.logViolation(data.violation_type, data.message);
         }
-      } catch(e) {}
+      } catch (e) {}
     },
 
     formatTime() {
@@ -468,34 +643,49 @@ function examApp() {
       }
     },
 
-    async logViolation(type) {
-      let niceMsg = type.replace('_', ' ');
-      if(type === 'tab_switch') niceMsg = 'You switched to another tab.';
-      if(type === 'window_blur') niceMsg = 'You minimized or clicked outside the exam window.';
-      
-      await apiFetch('/api/violations/', {
-        method: 'POST',
-        body: JSON.stringify({assessment_id: assessmentId, violation_type: type})
-      });
-      
-      this.handleViolationWarning(niceMsg, type);
+    shouldCount(type) {
+      if (!this.examStarted || this.autoSubmitting) return false;
+      const now = Date.now();
+      if (type === 'window_blur' && (now - (this.lastViolationAt.tab_switch || 0) < 2000 || now - (this.lastViolationAt.fullscreen_exit || 0) < 2000)) return false;
+      if (type === 'fullscreen_exit' && now - (this.lastViolationAt.window_blur || 0) < 2000) return false;
+      if (now - (this.lastViolationAt[type] || 0) < 8000) return false;
+      this.lastViolationAt[type] = now;
+      return true;
     },
 
-    handleViolationWarning(message, type) {
-      this.violations++;
-      
-      if(this.ws && this.ws.readyState === 1) {
+    async logViolation(type, message) {
+      if (!this.shouldCount(type)) return;
+      let recorded = null;
+      try {
+        const res = await apiFetch('/api/violations/', {
+          method: 'POST',
+          body: JSON.stringify({assessment_id: assessmentId, violation_type: type})
+        });
+        if (res && res.ok) recorded = await res.json();
+      } catch (e) {}
+      this.handleViolationWarning(message || this.violationLabel(type), type, recorded);
+    },
+
+    handleViolationWarning(message, type, recorded) {
+      if (recorded && typeof recorded.count === 'number') {
+        this.violations = recorded.count;
+        if (recorded.max_violations) this.maxViolations = recorded.max_violations;
+      } else {
+        this.violations++;
+      }
+      this.violationLog.push(this.violationLabel(type));
+
+      if (this.ws && this.ws.readyState === 1) {
         this.ws.send(JSON.stringify({type: 'violation', user: getUser()?.fullname, violation: type}));
       }
 
-      if (this.violations >= 3) {
-        this.violationMsg = "CRITICAL: MAXIMUM VIOLATIONS REACHED. YOUR EXAM IS BEING AUTO-SUBMITTED.";
+      if (this.violations >= this.maxViolations) {
+        this.violationMsg = 'You have used all 5 violations. This exam is being submitted.';
         this.showViolationModal = true;
-        
-        // Hide the dismiss button and auto submit after 3 seconds
-        setTimeout(() => {
-          this.submitExam();
-        }, 3000);
+        if (!this.autoSubmitting) {
+          this.autoSubmitting = true;
+          setTimeout(() => this.submitExam(), 3000);
+        }
       } else {
         this.violationMsg = message;
         this.showViolationModal = true;
@@ -509,8 +699,12 @@ function examApp() {
     },
 
     async submitExam() {
+      if (this._submitted) return;
+      this._submitted = true;
       clearInterval(this.timerInterval);
-      if(this.cameraInterval) clearInterval(this.cameraInterval);
+      if (this.cameraInterval) clearInterval(this.cameraInterval);
+      if (this.checkInterval) clearInterval(this.checkInterval);
+      this.stopVoiceMonitor();
       
       // Stop webcam
       const video = document.getElementById('webcam');
